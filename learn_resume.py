@@ -353,65 +353,6 @@ for row in data:
      for c in clist:
            CHAR2IDX.add(c)
 
-for row in data:
-    fname = PATH + urlify(row["RESUME_NAME"]) + ".csv"
-    clist = list(row["RESUME_TEXT"])
-    LINE_START = True
-    LINE_MIDDLE = False
-    WORD_START = True
-    WORD_MIDDLE = False
-    PARA_START = True
-    PARA_MIDDLE = False
-    NEW_LINE_COUNT = 0
-    prev_c = ' '
-    atoken = ""
-    line_text = ""
-    with open(fname) as train_file:
-        clen = len(clist) + 1
-        currpos = 0
-        posperc = currpos/clen
-        for c in clist:
-            currpos += 1
-            if c == '\n' or ( prev_c == '.' and  not c.isspace() ):
-                LINE_START = True
-                #wrtite Line end
-                train_file.write("{}, 2, 2, 3, {.2f}".format(c, posperc)) )
-                LINE_MIDDLE = True
-                if c == '\n':
-                    NEW_LINE_COUNT += 1
-                continue
-            else:
-                NEW_LINE_COUNT = 0
-
-            if LINE_START:
-                #wrtite Line start
-                if c.isspace():
-                    WORD_START = True
-                    if NEW_LINE_COUNT > 1:
-                        # Possible start of Paragraph
-                        train_file.write("{} , 0, 0, 3, {.2f}".format(c, posperc))
-
-                if c.isalnum() and prev_c.isspace():
-                    WORD_START = True
-                    if NEW_LINE_COUNT > 1:
-                        # Possible start of Paragraph
-                        train_file.write("{} , 0, 0, 0, {.2f}".format(c, posperc))
-                    else:
-                        train_file.write("{} , 0, 1, 0, {.2f}".format(c, posperc))
-                    atoken += c
-                else:
-                    pass
-                LINE_START = False
-                LINE_MIDDLE = True
-                prev_c = c
-                NEW_LINE_COUNT = 0
-                continue
-            if LINE_MIDDLE:
-                #wrtite Line start
-                train_file.write(c + " , 1" )
-                continue
-
-
 #==============================================================================================
 
 def mark_last(iterable):
@@ -419,7 +360,6 @@ def mark_last(iterable):
         *init, last = iterable
     except ValueError:  # if iterable is empty
         return
-
     for e in init:
         yield e, True
     yield last, False
@@ -464,10 +404,10 @@ for fname, props in file_list.items():
     with open(fname) as train_file:
         clen = props["COUNT"] + 1
         currpos = 0
-        for para in paras:
+        for para, doc_flag in mark_last( paras ):
             PARA = 0
-            for line, line_flag in mark_last( para ):
-                if line_flag == False:
+            for line, para_flag in mark_last( para ):
+                if para_flag == False:
                     PARA = 3
                 LINE = 0
                 WORD = 0
@@ -481,19 +421,15 @@ for fname, props in file_list.items():
                         WORD = 2
                     if LINE == 0:
                         train_file.write(f"{c},{PARA},{LINE},{WORD},{posperc}")
-                        if c == '\n':
+                        if c == '\n' or line_flag == False:
                             LINE = 3
                             train_file.write(f"{c},{PARA},{LINE},{WORD},{posperc}")
-                            break
                         else:
                             LINE = 2
                     if LINE == 2:
                         train_file.write(f"{c},{PARA},{LINE},{WORD},{posperc}")
-                    if c.isspace():
 
                     if WORD == 0:
                         WORD = 3
-
-
-            if PARA == 0:
-                PARA = 1
+                if PARA == 0:
+                    PARA = 1
