@@ -1,0 +1,53 @@
+Texthero:
+https://github.com/jbesomi/texthero#getting-started
+Texthero include tools for:
+Preprocess text data: it offers both out-of-the-box solutions but it's also flexible for custom-solutions.
+Natural Language Processing: keyphrases and keywords extraction, and named entity recognition.
+Text representation: TF-IDF, term frequency, and custom word-embeddings (wip)
+Vector space analysis: clustering (K-means, Meanshift, DBSCAN and Hierarchical), topic modeling (wip) and interpretation.
+Text visualization: vector space visualization, place localization on maps (wip).
+==========================================================================================================================
+textacy:
+https://textacy.readthedocs.io/en/latest/quickstart.html#working-with-text
+textacy is a Python library for performing a variety of natural language processing (NLP) tasks, 
+built on the high-performance spaCy library. With the fundamentals — tokenization, part-of-speech tagging, dependency parsing, etc.
+— delegated to another library, textacy focuses primarily on the tasks that come before and follow after.
+==========================================================================================================================
+FlashText:
+This module can be used to replace keywords in sentences or extract keywords from sentences. It is based on the FlashText algorithm.
+https://github.com/vi3k6i5/flashtext
+==========================================================================================================================
+retrie: Detects patterrns using trie 
+retrie offers fast methods to match and replace (sequences of) strings based on efficient Trie-based regex unions.
+https://github.com/ddelange/retrie
+==========================================================================================================================
+
+clean-text 0.6.0
+
+User-generated content on the Web and in social media is often dirty. 
+Preprocess your scraped data with clean-text to create a normalized text representation. For instance, turn this corrupted input:
+from cleantext import clean
+
+clean("some input",
+    fix_unicode=True,               # fix various unicode errors
+    to_ascii=True,                  # transliterate to closest ASCII representation
+    lower=True,                     # lowercase text
+    no_line_breaks=False,           # fully strip line breaks as opposed to only normalizing them
+    no_urls=False,                  # replace all URLs with a special token
+    no_emails=False,                # replace all email addresses with a special token
+    no_phone_numbers=False,         # replace all phone numbers with a special token
+    no_numbers=False,               # replace all numbers with a special token
+    no_digits=False,                # replace all digits with a special token
+    no_currency_symbols=False,      # replace all currency symbols with a special token
+    no_punct=False,                 # remove punctuations
+    replace_with_punct="",          # instead of removing punctuations you may replace them
+    replace_with_url="<URL>",
+    replace_with_email="<EMAIL>",
+    replace_with_phone_number="<PHONE>",
+    replace_with_number="<NUMBER>",
+    replace_with_digit="0",
+    replace_with_currency_symbol="<CUR>",
+    lang="en"                       # set to 'de' for German special handling
+)
+https://pypi.org/project/clean-text/
+
