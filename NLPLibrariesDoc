@@ -1,3 +1,17 @@
+NLPretext packages in a unique library all the text preprocessing functions you need to ease your NLP project.
+
+Quickly explore below our preprocessing pipelines and individual functions referential.
+
+Default preprocessing pipeline
+Custom preprocessing pipeline
+Replacing phone numbers
+Removing hashtags
+Extracting emojis
+Data augmentation
+https://github.com/artefactory/NLPretext
+
+
+
 Texthero:
 https://github.com/jbesomi/texthero#getting-started
 Texthero include tools for:
