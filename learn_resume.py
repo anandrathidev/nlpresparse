@@ -1,435 +1,332 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Sun Jul 11 22:24:12 2021
-
-@author: a_rathi
-"""
-
 import json
 from json import JSONEncoder
-import stanza
+import spacy
+import re
+
 import time
 import datetime
 import torch
-import gc
-from collections import Counter
+import collections
+import spacy
+from cleantext import clean
+import datefinder
+import dateparser.search
+import spacy.cli
+#spacy.cli.download("en_core_web_lg")
+#spacy.cli.download("en_core_web_sm")
+import hashlib
+from copy import deepcopy
+import string
+import regex
+import MyDateParser
 
-with open('C://Users//a_rathi//LocalDocuments//AI//res_parser//ALLRES.json') as json_file:
-    data = json.load(json_file)
+from nltk.corpus import stopwords
+from nltk.tokenize import word_tokenize
 
-print("data  Len {} ".format(len(data)))
-print("data 0 {} ".format(data[0]))
-category = {}
-alltext = []
-for element in data:
-    category[element['RESUME_TYPE']] = category.get(element['RESUME_TYPE'],0) + 1
-    alltext += category[element['RESUME_TYPE']]
-print("categories {} ".format(category))
+FILE_PATH = 'C://Users//a_rathi//LocalDocuments//AI//res_parser//ALLRES.json'
 
-#%%
-
-#import spacy
-gc.collect()
-torch.cuda.empty_cache()
-SIZE=64
-nlp = stanza.Pipeline(lang='en', processors='tokenize,mwt,pos,ner', use_gpu=True, tokenize_batch_size=SIZE,
-                      depparse_batch_size=SIZE,
-                      batch_size=SIZE,
-                      lemma_batch_size=SIZE,
-                      pos_batch_size=SIZE,
-                      ner_batch_size=SIZE
-                      )
-index = 0
-start_time = time.monotonic()
-#in_docs = [stanza.Document([], text=d['RESUME_TEXT']) for d in data]
-#out_docs = nlp( in_docs )
-word_ner_list = {}
-class WordDesc:
-    def __init__(self, text, upos, xpos, feats, ner):
-        self.text  = text
-        self.upos  = upos
-        self.xpos  = xpos
-        self.feats = feats
-        self.ner   = ner
-
-for element in data:
-    index += 1
-    if index == 421 or index == 422:
-        continue
-    element['NER'] = json.loads( str(nlp(element['RESUME_TEXT']))  )
-    print('seconds: ', time.monotonic() - start_time, datetime.datetime.now() )
-    print(index)
-    start_time = time.monotonic()
-    #print(element['NER'])
-    if index%400==0:
-        torch.cuda.empty_cache()
-        gc.collect()
-
-import torch
-torch.cuda.is_available()
-torch.cuda.empty_cache()
-gc.collect()
+def load_data():
+    with open(FILE_PATH) as json_file:
+        data = json.load(json_file)
+    return data
+data = load_data()
 
 
+dfmt = []
+dfmt += ['%d-%b-%y','%d-%b-%Y','%b-%d-%y','%b-%d-%Y','%y-%b-%d','%Y-%b-%d','%Y-%d-%b',]
+dfmt += ['%d/%b/%y','%d/%b/%Y','%b/%d/%y','%b/%d/%Y','%y/%b/%d','%Y/%b/%d','%Y/%d/%b',]
+dfmt += ['%d %b %y','%d %b %Y','%b %d %y','%b %d %Y','%y %b %d','%Y %b %d','%Y %d %b',]
 
+dfmt += ['%d-%B-%y','%d-%B-%Y','%B-%d-%y','%B-%d-%Y','%y-%B-%d','%Y-%B-%d','%Y-%d-%B',]
+dfmt += ['%d/%B/%y','%d/%B/%Y','%B/%d/%y','%B/%d/%Y','%y/%B/%d','%Y/%B/%d','%Y/%d/%B',]
+dfmt += ['%d %B %y','%d %B %Y','%B %d %y','%B %d %Y','%y %B %d','%Y %B %d','%Y %d %B',]
 
-#%%
-import copy
-import json
-newdata = copy.deepcopy(data)
-with open('C://Users//a_rathi//LocalDocuments//AI//res_parser//ALLRES_NER.json') as ner_json_file:
-    for element in data:
-        newdata
-        index += 1
-        if index == 421 or index == 422:
+dfmt += ['%d-%m-%Y','%Y-%m-%d','%m-%d-%Y','%d-%m-%y','%y-%m-%d','%m-%d-%y' ]
+dfmt += ['%d/%m/%Y','%Y/%m/%d','%m/%d/%Y','%d/%m/%y','%y/%m/%d','%m/%d/%y' ]
+dfmt += ['%d %m %Y','%Y %m %d','%m %d %Y','%d %m %y','%y %m %d','%m %d %y' ]
+
+dfmt += ['%b/%Y','%b/%y','%B/%Y','%B/%y','%Y/%b','%Y/%B','%y/%b','%y/%B' ]
+dfmt += ['%b-%Y','%b-%y','%B-%Y','%B-%y','%Y-%b','%Y-%B','%y-%b','%y-%B' ]
+dfmt += ['%b %Y','%b %y','%B %Y','%B %y','%Y %b','%Y %B','%y %b','%y %B' ]
+dfmt += ["%b'%Y","%b'%y","%B'%Y","%B'%y","%Y'%b","%Y'%B","%y'%b","%y'%B" ]
+dfmt += ["%b’%Y","%b’%y","%B’%Y","%B’%y","%Y’%b","%Y’%B","%y’%b","%y’%B" ]
+dfmt += ['%b,%Y','%b,%y','%B,%Y','%B,%y','%Y,%b','%Y,%B','%y,%b','%y,%B' ]
+
+dfmt += ['%Y/%m', '%m/%Y',  ]
+dfmt += ['%Y-%m', '%m-%Y',  ]
+dfmt += ['%Y %m', '%m %Y', ]
+
+#dfmt += [ '%y/%m', '%m/%y', ]
+#dfmt += [ '%y-%m', '%m-%y', ]
+
+def myparse_timestamp(datestring, formats):
+    d = None
+    datestring = datestring.strip()
+    for f in formats:
+        try:
+            d = datetime.datetime.strptime(datestring, f)
+            break
+        except:
             continue
-        s = json.dmumps( element )
-        ner_json_file.write(s)
+    return d
 
-print(lst)
-
-#%%
-
-len(data)
-
-word_cnt = {}
-word_ner_dict = {}
-upos = set()
-xpos = set()
-ner = set()
-feats = set()
-for element in data:
-    if "NER" not in element:
-        continue
-    for sentence in  element["NER"]:
-        for word in  sentence:
-            word_cnt_set =  word_cnt.get(word["text"], set())
-            word_cnt_set.add(element["RESUME_PATH"])
-            word_cnt[word[ "text"]] = word_cnt_set
-            upos.add(word["upos"])
-            xpos.add(word["xpos"])
-            ner.add(word["ner"])
-            if word["text"]  not in word_ner_dict:
-                word_ner_dict[ word["text"] ] =  { "text"  :  word["text"],
-                                        "upos"  : Counter( { word["upos"] : 1} ),
-                                        "xpos"  : Counter( { word["xpos"] : 1} ),
-                                        "ner"   : Counter( { word["ner"]  : 1} ),
-                                        "count" : 1
-                                            }
-                if  "feats" not in  word:
-                    word_ner_dict[ word["text"] ]["feats"] = Counter()
-                else:
-                    word_ner_dict[ word["text"] ]["feats"] = Counter( { word["feats"] : 1 })
-            else:
-                word_ner_dict[ word["text"] ]["upos"][word["upos"]] += 1
-                word_ner_dict[ word["text"] ]["xpos"][word["xpos"]] += 1
-                word_ner_dict[ word["text"] ]["count"] += 1
-                #print(" word_ner_list[ word['text'] ]  {}".format( word_ner_list[ word["text"] ] ) )
-                if  "feats" in  word:
-                    feat = word["feats"]
-                    feat = feat.replace('=', '_')
-                    flist = feat.split('|')
-                    for f in flist:
-                        feats.add(f)
-                        word_ner_dict[ word["text"] ]["feats"][f] += 1
-
-word_ner_dict['Email']
-len(word_cnt['Email'])
-
-itr = iter(word_ner_dict.items())
-lst = [next(itr) for i in range(3)]
-print(lst)
-
-
-#%%
-word_ner_list = []
-for word, details in word_ner_dict.items():
-    adict =  {"word" : word , "count" : details["count"], "doccount" : len(word_cnt[word])}
-    for u in upos:
-        val = details.get('upos', None)
-        if val:
-            adict["upos_" + u] =  val.get(u, 0)
-        else:
-            adict["upos_" + u] = 0
-    for x in xpos:
-        adict["xpos_" + x] = details.get(x, 0)
-        val = details.get('xpos', None)
-        if val:
-            adict["xpos_" + x] =  val.get(x, 0)
-        else:
-            adict["xpos_" + x] = 0
-    for n in ner:
-        adict["ner_" + n] = details.get(n, 0)
-        val = details.get('ner', None)
-        if val:
-            adict["ner_" + n] =  val.get(n, 0)
-        else:
-            adict["ner_" + n] =  0
-    for f in feats:
-        adict["feats_" + f] = details.get(f, 0)
-        val = details.get('feats', None)
-        if val:
-            adict["feats_" + f] =  val.get(f, 0)
-        else:
-            adict["feats_" + f] =  0
-
-    word_ner_list.append(adict)
-
-#%%
-word_ner_list[:10]
-
-import pandas as pd
-dataframe = pd.DataFrame.from_dict(word_ner_list)
-pd.pandas.set_option('display.max_columns', None)
-
-dataframe[ dataframe.word=='Email']
-dataframe[ dataframe.word=='Email']['doccount']
-word_ner_dict['Email']
-
-df_file_name = 'C://Users//a_rathi//LocalDocuments//AI//res_parser//ALL_TOKENS_DF.feather'
-dataframe.to_feather(df_file_name)
-
-sql_file_name = 'C://Users//a_rathi//LocalDocuments//AI//res_parser//ALL_TOKENS_DF.db'
-import sqlite3 as db
-con = db.connect(sql_file_name)
-table_name = "tokens"
-dataframe.to_sql(table_name, con, if_exists="replace")
-cur = con.cursor()
-cur.execute("SELECT  word, \
- count, \
- doccount,\
- upos_PUNCT,\
- upos_PART,\
- upos_ADV,\
- upos_X,\
- upos_PRON,\
- upos_AUX,\
- upos_INTJ,\
- upos_CCONJ,\
- upos_NOUN,\
- upos_NUM,\
- upos_VERB,\
- upos_ADJ,\
- upos_SYM,\
- upos_SCONJ,\
- upos_ADP,\
- upos_PROPN,\
- upos_DET FROM tokens ORDER BY count desc limit 500")
-names = list(map(lambda x: x[0], cur.description))
-cur.fetchall()
-
-csv_file_name = 'C://Users//a_rathi//LocalDocuments//AI//res_parser//ALL_TOKENS_DF.csv'
-dataframe.to_csv(csv_file_name, header=True )
-
-newdf = pd.read_csv(csv_file_name)
-
-#%%
-index=0
-newindex=1
-text_file_name = f'C://Users//a_rathi//LocalDocuments//AI//res_parser//ALL_TOKENS_{newindex}.json'
-token_file = open(text_file_name, "w")
-for element in data:
-    if "NER" not in element:
-        continue
-    index+=1
-    if index%500==0:
-        newindex+=1
-        text_file_name = f'C://Users//a_rathi//LocalDocuments//AI//res_parser//ALL_TOKENS_{newindex}.json'
-        token_file.close()
-        token_file = open(text_file_name, "w")
-    token_file.write(json.dumps(element["NER"]) + "\n")
-token_file.close()
-
-#print(*[f'word: {word.text}\tstrat: {word.start_char}\tend: {word.end_char}\tupos: {word.upos}\txpos: {word.xpos}\tfeats: {word.feats if word.feats else "_"}' for sent in doc.sentences for word in sent.words], sep='\n')
-
-
-#%%
-import  re
-phone_comp = re.compile("(\+\s?\d{1,3}\s?)?((\(\s?\d{3}\s?\)\s?)|(\d{3})(\s|-?))(\d{3}(\s|-?))(\d{4})(\s?(([E|e]xt[:|.|]?)|x|X)(\s?\d+))?" )
-email_comp = re.compile("""(?:[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*|"(?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21\x23-\x5b\x5d-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])*")@(?:(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?|\[(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?|[a-z0-9-]*[a-z0-9]:(?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21-\x5a\x53-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])+)\])""")
-
-text = """
-my num 0402191299  is this
-mob:+61402191299  is this
-The regex should accept numbers like
-
-+1 8087339090
-+91 8087339090
-+912 8087339090
-8087339090
-08087339090
-+1-8087339090
-+91-8087339090
-+912-8087339090
-+918087677876(Country code(2 digits) + 10 digits Mobile Number)
-+9108087735454(Country code(3 digits) + 10 digits Mobile Number)
-The regex should not accept numbers like
-
-++51 874645(double successive +)
-+71 84364356(double successive spaces)
-+91 808 75 74 678(not more than one space)
-+91 808-75-74-678(not more than one -)
-+91-846363
-80873(number less than 10 digit)
-8087339090456(number greater than 10 digit)
-0000000000(all zeros)
-+91 0000000(all zeros with country code)
 
 """
-tl = phone_comp.findall(text)
-print("".join(tl[1]))
-print(tl)
+def test():
+    matchesdf = datefinder.find_dates(data[0]['RESUME_TEXT'], source=True, index=True)
+    list_match = []
+    matchesdf = list(matchesdf)
+    for match in matchesdf:
+        dparsed = myparse_timestamp(match[1], formats=dfmt)
+
+myparse_timestamp(datestring= 'jun 12', formats=dfmt)
+matchesdf = datefinder.find_dates(data[0]['RESUME_TEXT'], source=True, index=True)
+list_match = []
+matchesdf = list(matchesdf)
+for match in matchesdf:
+    dparsed = myparse_timestamp(match[1], formats=dfmt)
+
+"""
+
+def hash_string(input):
+    byte_input = input.encode()
+    hash_object = hashlib.sha256(byte_input)
+    return hash_object.hexdigest()
+
+def FindEmails(text:str) :
+    matchs = FindEmails.regex.finditer( text )
+    list_match = []
+    for m in matchs:
+        e = m.group(0)
+        h = "EMAIL" + hash_string(e)+  "EMAIL"
+        s = m.span()
+        d2 = { e: {"start":s[0],"end":s[1],"email":e,"hash":h } }
+        FindEmails.email_dict[h] = d2
+        list_match.append( (e, h) )
+    for l in list_match:
+        text = re.sub(l[0], l[1], text)
+    return text
+FindEmails.regex = re.compile(r'[\w.+-]+@[\w-]+\.[\w.-]+' )
+FindEmails.email_dict = {}
+
+def FindUrls(text:str ):
+    matchs = FindUrls.regex.finditer(text)
+    list_match = []
+    for m in matchs:
+        e = m.group(0)
+        h = "URL" + hash_string(e)+  "URL"
+        s = m.span()
+        d2 = { e: {"start":s[0],"end":s[1],"url":e,"hash":h } }
+        FindUrls.url_dict[h] = d2
+        list_match.append( (e, h) )
+    for l in list_match:
+        text = re.sub(l[0], l[1], text)
+    return text
+FindUrls.regex = re.compile(r'\b((?:https?://)?(?:(?:www\.)?(?:[\da-z\.-]+)\.(?:[a-z]{2,6})|(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)|(?:(?:[0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|(?:[0-9a-fA-F]{1,4}:){1,7}:|(?:[0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|(?:[0-9a-fA-F]{1,4}:){1,5}(?::[0-9a-fA-F]{1,4}){1,2}|(?:[0-9a-fA-F]{1,4}:){1,4}(?::[0-9a-fA-F]{1,4}){1,3}|(?:[0-9a-fA-F]{1,4}:){1,3}(?::[0-9a-fA-F]{1,4}){1,4}|(?:[0-9a-fA-F]{1,4}:){1,2}(?::[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:(?:(?::[0-9a-fA-F]{1,4}){1,6})|:(?:(?::[0-9a-fA-F]{1,4}){1,7}|:)|fe80:(?::[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|::(?:ffff(?::0{1,4}){0,1}:){0,1}(?:(?:25[0-5]|(?:2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(?:25[0-5]|(?:2[0-4]|1{0,1}[0-9]){0,1}[0-9])|(?:[0-9a-fA-F]{1,4}:){1,4}:(?:(?:25[0-5]|(?:2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(?:25[0-5]|(?:2[0-4]|1{0,1}[0-9]){0,1}[0-9])))(?::[0-9]{1,4}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5])?(?:/[\w\.-]*)*/?)\b')
+FindUrls.url_dict = {}
+
+def FindDates(text:str):
+    matchesdf = datefinder.find_dates(text, source=True, index=True)
+    list_match = []
+    for match in matchesdf:
+        dparsed = myparse_timestamp(match[1], formats=dfmt)
+        if dparsed:
+            e = match[1]
+            s = match[2]
+            h = "DATE" + hash_string(e)+  "DATE"
+            d2 = { e: {"start":s[0],"end":s[1],"date":e,"hash":h } }
+            FindDates.dates_dict[h] = d2
+            list_match.append( (e, h) )
+            #print(d2)
+    for l in list_match:
+        text = re.sub(l[0], l[1], text)
+    return text
+FindDates.dates_dict = {}
+
+def zipngram(text_list,n=2):
+  print(f"zipngram {n}")
+  return zip(*[text_list[i:] for i in range(n)])
+
+class Replace:
+    def __init__(self, replace_with=" "):
+        self.punc_dict = dict.fromkeys(string.punctuation, replace_with)
+        self.punc_dict.pop('"')
+        self.punc_dict.pop('$')
+        self.punc_dict.pop('%')
+        self.punc_dict.pop('_')
+        self.punc_trans = str.maketrans(self.punc_dict)
+
+    def replace_punct(self, text ):
+        """
+        Replace punctuations from ``text`` with whitespaces (or other tokens).
+        """
+        return text.translate( self.punc_trans )
+
+data[0].keys()
+alltext = []
+I = 0
+new_data = []
+categories = set()
+def getBiGrams(data, n, dlen = None):
+    new_data = []
+    new_text = ""
+    I = 0
+    if dlen is None:
+        dlen = len(data) +1
+    filtered_sentence = []
+    stop_words = set(stopwords.words('english'))
+    repl = Replace()
+    ngrams = {}
+    for x in range(n+1):
+        ngrams[x] = []
+
+    for element in data:
+        I = I + 1
+        print(100*I/dlen, end = ",")
+        if I > dlen:
+            break
+        rt = element['RESUME_TEXT']
+        if len(rt)>25182:
+            continue
+        rt = FindEmails(rt)
+        rt = FindUrls(rt)
+        rt = FindDates(rt)
+        rt = clean(rt,
+                fix_unicode=True,
+                to_ascii=True,
+                lower=True,
+                normalize_whitespace=True,
+                no_line_breaks=True,
+                strip_lines=False,
+                keep_two_line_breaks=False,
+                no_urls=False,
+                no_emails=False,
+                no_phone_numbers=False,
+                no_numbers=False,
+                no_digits=False,
+                no_currency_symbols=False,
+                no_punct=False,
+                no_emoji=True,
+                replace_with_url="<URL>",
+                replace_with_email="<EMAIL>",
+                replace_with_phone_number="<PHONE>",
+                replace_with_number="<NUMBER>",
+                replace_with_digit="0",
+                replace_with_currency_symbol="<CUR>",
+                replace_with_punct=" ",
+                lang="en"
+                )
+        rt = repl.replace_punct(rt)
+        rt = FindDates(rt)
+        new_data.append(rt)
+        word_tokens = word_tokenize(rt)
+        word_tokens = [w for w in word_tokens if w not in stop_words]
+        for x in range(n+1):
+            ngrams[x] += list(zipngram(word_tokens, n=x))
+
+    return ngrams,new_data
+
+tringrams,new_data = getBiGrams(data, n=3, dlen=20)
+c = collections.Counter(tringrams[1])
+c2 = collections.Counter(tringrams[2])
+
+for i,e in enumerate(new_data):
+    mnths = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november","december", "jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec",]
+    p = regex.compile(r"\L<name>", name=mnths)
+    m = p.findall(e)
+    print(m)
+    if e.find(" nov ")!=-1:
+        print(i)
+
+print("categories {} ".format(categories))
+
+FindDates( "  nov 05   nov 07 ")
+
+list(datefinder.find_dates(data[6]['RESUME_TEXT'], source=True, index=True))
+list(dateparser.search.search_dates(data[6]['RESUME_TEXT']))
+list(datefinder.find_dates(new_data[6], source=True, index=True))
 
 
-sql_file_name = 'C://Users//a_rathi//LocalDocuments//AI//res_parser//ALL_TOKENS_DF.db'
-import sqlite3 as db
-conn = db.connect(sql_file_name)
-table_name = "tokens"
-cur = conn.cursor()
-cur.execute("SELECT word FROM tokens")
-rows = cur.fetchall()
-for row in rows:
-    phones = phone_comp.findall(row[0])
-    if phones:
-       print( ",".join([ "".join(x) for x in phones ] ) )
 
+list(datefinder.find_dates("duration  jul 12   nov 13 team size", source=True, index=True, strict=False))
+matchesdf = datefinder.find_dates("duration 8/8/2008 05th Nov   nov 07 team size  5", source=True, index=True)
+matchesdf = list(matchesdf)
+print(matchesdf)
+for match in matchesdf:
+    dparsed = myparse_timestamp(match[1], formats=dfmt)
+    print(dparsed)
 
-sql_file_name = 'C://Users//a_rathi//LocalDocuments//AI//res_parser//ALL_TOKENS_DF.db'
-import sqlite3 as db
-conn = db.connect(sql_file_name)
-table_name = "tokens"
-cur = conn.cursor()
-cur.execute("SELECT word FROM tokens")
-rows = cur.fetchall()
-for row in rows:
-    phones = email_comp.findall(row[0])
-    if phones:
-       print( ",".join([ "".join(x) for x in phones ] ) )
+rt = clean(data[6]['RESUME_TEXT'],fix_unicode=True, to_ascii=True, lower=True,  normalize_whitespace=True,
+   no_line_breaks=True, strip_lines=False, keep_two_line_breaks=False, no_urls=False,
+   no_emails=False, no_phone_numbers=False, no_numbers=False, no_digits=False,
+  no_currency_symbols=False, no_punct=True, no_emoji=True, lang="en")
 
+repl = Replace()
+rt = repl.replace_punct(rt)
 
-
-for row in data:
-    for c in list(row["RESUME_TEXT"])
-    if phones:
-        for p in phones:
-            print("match " +  "".join(p) + " : " + )
-
-
-
-
-#%%
-
+#print( f" datefinder {list(datefinder.find_dates(rt, source=True, index=True, strict=False))} " )
+print( "===============================================================")
+print( f" dateparser {list(dateparser.search.search_dates(rt))} ")
+list(dateparser.search.search_dates(rt))
 
 import re
-def urlify(s):
-    # Remove all non-word characters (everything except numbers and letters)
-    s = re.sub(r"[^\w\s]", '', s)
-    # Replace all runs of whitespace with a single dash
-    s = re.sub(r"\s+", '_', s)
+class DateExp:
+    def __init__(self):
+        MM = r"(0?[1-9]|1[0-2])"
+        DELIMITER = r"([^\w\d\r\n:])"
+        DD = r"(0?[1-9]|[12]\d|30|31)"
+        YY = r"(\d{4}|\d{2})"
+        CLOSEB = r")"
+        CLOSEB = r"\b)"
+        OPENB = r"("
+        OPENB = r"(\b"
+        YYYYMMDD = [
+                    OPENB + DD + DELIMITER + MM + DELIMITER + YY + CLOSEB,
+                    OPENB + MM + DELIMITER + DD + DELIMITER + YY + CLOSEB,
+                    OPENB + YY + DELIMITER + DD + DELIMITER + MM + CLOSEB,
+                    OPENB + YY + DELIMITER + MM + DELIMITER + DD + CLOSEB,
+                    OPENB + MM  + DELIMITER + YY + CLOSEB,
+               ]
+        drexp = "|".join(YYYYMMDD)
 
-    return s
-len(data)
-PATH = "C:/Users/a_rathi/LocalDocuments/AI/res_parser/Train/"
-LABELS2IDX  = {
-            "LINE_START" : 0,
-            "LINE_MIDDLE" : 1,
-            "LINE_END" : 2,
+        months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November","December", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+        bB =  "|".join(months)
 
-            "WORD_START" : 0,
-            "WORD_MIDDLE" : 1,
-            "WORD_END" : 2,
-            "WORD_UNK" : 3,
+        BBDDYY = [
+                    OPENB + DD + DELIMITER + bB + DELIMITER + YY + CLOSEB,
+                    OPENB + bB + DELIMITER + DD + DELIMITER + YY + CLOSEB,
+                    OPENB + YY + DELIMITER + DD + DELIMITER + bB + CLOSEB,
+                    OPENB + YY + DELIMITER + bB + DELIMITER + DD + CLOSEB,
+                    OPENB + bB + DELIMITER + YY + CLOSEB,
+                    OPENB + YY + bB +  DD + CLOSEB,
+                    OPENB + DD + bB + YY + CLOSEB,
+                    OPENB + bB + YY + CLOSEB,
+               ]
 
-            "PARA_START" : 0,
-            "PARA_MIDDLE" : 1,
-            "PARA_END" : 2,
-            "PARA_UNK" : 2,
-        }
+        drexp_bb = "|".join( BBDDYY )
+        self.regexp = drexp + "|" + drexp_bb
+        self.comp_re = re.compile(self.regexp)
+        self.MLIST = YYYYMMDD + BBDDYY
 
+    def get_expr_list(self):
+        return self.MLIST
 
-CHAR2IDX = set()
-for row in data:
-    clist = list(row["RESUME_TEXT"])
-     for c in clist:
-           CHAR2IDX.add(c)
+    def get_date_re(self):
+        return self.regexp
 
-#==============================================================================================
+    def findall(self, text:str, ):
+        return self.comp_re.findall(text)
 
-def mark_last(iterable):
-    try:
-        *init, last = iterable
-    except ValueError:  # if iterable is empty
-        return
-    for e in init:
-        yield e, True
-    yield last, False
-
-chars_set = set()
-file_list = {}
-for row in data:
-    fname = PATH + urlify(row["RESUME_NAME"]) + ".csv"
-    clist = list(row["RESUME_TEXT"])
-    para_list = []
-    line_list = []
-    line_text = ""
-    for c in clist:
-        chars_set.add(c)
-        if c == '\n':
-            line_text + = c
-            line_list.append(line_text)
-            line_text = ""
-        else:
-            line_text + = c
-    empty_line = 0
-    NEW_PARA = True
-    para = []
-    for l in line_list:
-            NEW_PARA = False
-        if len(l.strip())==0:
-            empty_line+=1
-            NEW_PARA = True
-            para.append(l)
-        else:
-            if NEW_PARA:
-                para_list.append(para)
-                para = []
-            para.append(l)
-    file_list[fname] = { "PARAS" : para_list, "COUNT" : len(clist) }
-
-
-char2idx =  { idx:ch  for idx, ch in enumerate(chars_set) }
-for fname, props in file_list.items():
-    paras  = props["PARAS"]
-    atoken = ""
-    with open(fname) as train_file:
-        clen = props["COUNT"] + 1
-        currpos = 0
-        for para, doc_flag in mark_last( paras ):
-            PARA = 0
-            for line, para_flag in mark_last( para ):
-                if para_flag == False:
-                    PARA = 3
-                LINE = 0
-                WORD = 0
-                prev_c = ' '
-                for c, flag in mark_last( list(line) ):
-                    posperc = round( currpos / (1.0 * clen) , 2 )
-                    if WORD == 2:
-                        if c.isspace() or flag==False:
-                            WORD = 3
-                    if c.isalnum() and prev_c.isspace():
-                        WORD = 2
-                    if LINE == 0:
-                        train_file.write(f"{c},{PARA},{LINE},{WORD},{posperc}")
-                        if c == '\n' or line_flag == False:
-                            LINE = 3
-                            train_file.write(f"{c},{PARA},{LINE},{WORD},{posperc}")
-                        else:
-                            LINE = 2
-                    if LINE == 2:
-                        train_file.write(f"{c},{PARA},{LINE},{WORD},{posperc}")
-
-                    if WORD == 0:
-                        WORD = 3
-                if PARA == 0:
-                    PARA = 1
+mydateparser = DateExp()
+re_str = mydateparser.get_date_re()
+import re
+matches = re.findall( mydateparser.get_date_re(), new_data[6], flags=re.IGNORECASE| re.DOTALL )
+for m in matches:
+    m = list(m)
+    print(m)
+    for i, mi in enumerate(m):
+        if mi.strip() == "":
+            continue
+        #print(f" val {mi} " )
+        #print(f" {i} {mydateparser.get_expr_list()[i]} " )
+    print("".join(m))
